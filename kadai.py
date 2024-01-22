@@ -2,58 +2,63 @@ import pygame
 import sys
 import random
 
-# 初期化
-pygame.init()
 
-# 画面の設定
+pygame.init()
+pygame.mixer.init()  
+
+
 screen_width = 600
 screen_height = 400
 screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption("Avoidance Game")
 
-# 色の定義
+
 white = (255, 255, 255)
 black = (0, 0, 0)
-red = (255, 0, 0)
 
-# キャラクターの画像設定
+
 character_image = pygame.image.load('New Piskel-1.png.png')
-character_width = 40  # 画像の幅
-character_height = 120  # 画像の高さ
+character_width = 70 
+character_height = 120 
 character_image = pygame.transform.scale(character_image, (character_width, character_height))
 
-# 障害物の画像設定
+
 obstacle_image = pygame.image.load('/Users/toyotatakumi/Desktop/info2-2023/New Piskel-1.png (1).png')
 obstacle_width = 50
 obstacle_height = 50
-# 画像のスケールが必要な場合は調整する
 obstacle_image = pygame.transform.scale(obstacle_image, (obstacle_width, obstacle_height))
 
-# アイテム（ハート）の設定
+
+heart_image = pygame.image.load('kaihuku.png')  
 heart_width = 30
 heart_height = 30
+heart_image = pygame.transform.scale(heart_image, (heart_width, heart_height))  
 heart_speed = 5
-heart_frequency = 15  # 15秒に1回程度の頻度
+heart_frequency = 15 
 
-# アイテム（グローブ）の設定
+
 glove_width = 30
 glove_height = 30
 glove_speed = 5
-glove_frequency = 20  # 20秒に1回程度の頻度
+glove_frequency = 20  
 
-# 障害物の設定
+
 obstacle_base_speed = 4
 obstacle_speed = obstacle_base_speed
-num_obstacles = 4  # 同時に降ってくる障害物の数
+num_obstacles = 5  
 
-# ライフの設定
+
+obstacle_speed_increase_interval = 5 
+last_speed_increase_time = 0 
+
+
 max_life = 3
 life = max_life
 
-# フォントの設定
+
 font = pygame.font.SysFont(None, 25)
 
-# 初期位置
+
 character_x = screen_width // 2 - character_width // 2
 character_y = screen_height - character_height - 10
 
@@ -64,18 +69,17 @@ gloves = []
 for _ in range(num_obstacles):
     obstacle_x = random.randint(0, screen_width - obstacle_width)
     obstacle_y = random.randint(-screen_height, 0)
-    obstacles.append([obstacle_x, obstacle_y])  # 座標をリストに変更
+    obstacles.append([obstacle_x, obstacle_y]) 
 
-# 時間計測用の変数
+
 clock = pygame.time.Clock()
 start_ticks = pygame.time.get_ticks()
 
-# 障害物スピードの増加に関連する変数
-obstacle_speed_increase_interval = 10  # 10秒ごとにスピードを上げる
-last_speed_increase_time = 5
 
-# ハートの生成に関連する変数
 last_heart_spawn_time = 0
+
+
+collision_sound = pygame.mixer.Sound('dageki.mp3')
 
 def draw_character_image(x, y):
     screen.blit(character_image, (x, y))
@@ -84,11 +88,12 @@ def draw_obstacle(obstacle_rect):
     screen.blit(obstacle_image, obstacle_rect.topleft)
 
 def draw_heart(x, y):
-    pygame.draw.polygon(screen, red, [(x, y + heart_height // 2), (x + heart_width // 2, y),
-                                      (x + heart_width, y + heart_height // 2), (x + heart_width // 2, y + heart_height)])
+    screen.blit(heart_image, (x, y))  
 
 def draw_glove(x, y):
-    pygame.draw.polygon(screen, (255, 69, 0), [(x, y), (x + glove_width, y), (x + glove_width, y + glove_height), (x, y + glove_height)])
+    orange = (255, 165, 0)
+    pygame.draw.polygon(screen, orange, [(x, y), (x + glove_width, y), (x + glove_width, y + glove_height),
+    (x, y + glove_height)])
 
 def draw_life(life):
     text = font.render("Life: " + str(life), True, white)
@@ -113,63 +118,84 @@ def game_over():
     pygame.quit()
     sys.exit()
 
-# ゲームループ
-while True:
-    # 現在の時間を取得
-    current_time = pygame.time.get_ticks() / 1000  # ミリ秒を秒に変換
 
-    # 障害物のスピードを時間経過に応じて上げる
+pygame.mixer.music.load('human.mp3') 
+pygame.mixer.music.play(-1)
+
+
+while True:
+    current_time = pygame.time.get_ticks() / 1000  
+
+    
     if current_time - last_speed_increase_time > obstacle_speed_increase_interval:
-        obstacle_speed += 0.9  # スピードを増加
+        obstacle_speed += 1 
         last_speed_increase_time = current_time
 
-    # イベント処理
+   
+    if current_time - last_heart_spawn_time > heart_frequency:
+        heart_x = random.randint(0, screen_width - heart_width)
+        heart_y = -heart_height 
+        hearts.append([heart_x, heart_y])
+        last_heart_spawn_time = current_time
+
+  
+    for heart in hearts:
+        heart[1] += heart_speed  
+        if heart[1] > screen_height:
+            hearts.remove(heart) 
+
+   
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
+            pygame.mixer.music.stop()
             pygame.quit()
             sys.exit()
 
-    # マウスの座標を取得してキャラクターの位置を更新
+   
     character_x, character_y = pygame.mouse.get_pos()
     character_x = max(0, min(character_x, screen_width - character_width))
     character_y = max(0, min(character_y, screen_height - character_height))
 
-    # キャラクターのRectを更新
+    
     character_rect = pygame.Rect(character_x, character_y, character_width, character_height)
 
-    # 障害物の移動
+  
     for i, obstacle in enumerate(obstacles):
         obstacle[1] += obstacle_speed
         if obstacle[1] > screen_height:
             obstacle[0] = random.randint(0, screen_width - obstacle_width)
             obstacle[1] = -obstacle_height
 
-    # ハートの移動と衝突判定
-    # ...
 
-    # グローブの移動
-    # ...
-
-    # 障害物の衝突判定
     for i, obstacle in enumerate(obstacles):
         obstacle_rect = pygame.Rect(obstacle[0], obstacle[1], obstacle_width, obstacle_height)
         if character_rect.colliderect(obstacle_rect):
-            life -= 1
+            if pygame.mouse.get_pressed()[0]:  
+                pass
+            else:
+                collision_sound.play()  
+                life -= 1
+                if life <= 0:
+                    game_over()
             obstacles[i] = [random.randint(0, screen_width - obstacle_width), -obstacle_height]
-            if life <= 0:
-                game_over()
 
-    # 描画処理
+
+    for heart in hearts[:]:  
+        heart_rect = pygame.Rect(heart[0], heart[1], heart_width, heart_height)
+        if character_rect.colliderect(heart_rect):
+            life = min(life + 1, max_life) 
+            hearts.remove(heart)
+
+   
     screen.fill(black)
     draw_character_image(character_x, character_y)
     for obstacle in obstacles:
         draw_obstacle(pygame.Rect(obstacle[0], obstacle[1], obstacle_width, obstacle_height))
-    for heart_x, heart_y in hearts:
-        draw_heart(heart_x, heart_y)
-    for glove_x, glove_y in gloves:
-        draw_glove(glove_x, glove_y)
+    for heart in hearts:
+        draw_heart(heart[0], heart[1])
     draw_life(life)
     draw_time(current_time)
 
     pygame.display.update()
     clock.tick(60)
+
